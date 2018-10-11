@@ -12,7 +12,10 @@ class App extends Component {
       .then(res => this.setState({ response: res.express }))
       .catch(err => console.log(err));
     this.getVersion()
-      .then(res => this.setState({ version: res.version }))
+      .then(res => { 
+        console.log(res);
+        this.setState({ version: res.version })
+      })
       .catch(err => console.log(err));
   }
 

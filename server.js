@@ -1,7 +1,9 @@
 const express = require('express');
 const path = require('path');
+require('dotenv').config();
 const app = express();
-const port = process.env.PORT || 5000;
+const port = process.env.SERVER_PORT || 5000;
+console.log(process.env);
 const version = "0.0.1";
 // API calls
 app.get('/api/hello', (req, res) => {
