@@ -1,6 +1,11 @@
 import React, { Component } from 'react';
 import logo from './logo.svg';
 import './App.css';
+import {
+    fetchData,
+    // postData,
+    // putData
+  } from './api';
 
 class App extends Component {
   state = {
@@ -13,14 +18,27 @@ class App extends Component {
       .catch(err => console.log(err));
     this.getVersion()
       .then(res => { 
-        console.log(res);
         this.setState({ version: res.version })
+      })
+      .catch(err => console.log(err));
+    this.userTest()
+      .then(res => { 
+        console.log(res);
       })
       .catch(err => console.log(err));
   }
 
+  userTest = async () => {
+    const response = await fetchData('/user/test');
+    const body = await response.json();
+
+    if (response.status !== 200) throw Error(body.message);
+
+    return body;
+  };
+
   getVersion = async () => {
-    const response = await fetch('/api/version');
+    const response = await fetchData('/version');
     const body = await response.json();
 
     if (response.status !== 200) throw Error(body.message);
@@ -29,7 +47,7 @@ class App extends Component {
   };
 
   callApi = async () => {
-    const response = await fetch('/api/hello');
+    const response = await fetchData('/hello');
     const body = await response.json();
 
     if (response.status !== 200) throw Error(body.message);
