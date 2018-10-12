@@ -3,19 +3,22 @@
   "version": "1.0.0",
   "scripts": {
     "client": "cd client && yarn start",
-    "server": "nodemon server.js",
+    "server": "nodemon starter.js",
     "dev": "concurrently --kill-others-on-fail \"yarn server\" \"yarn client\"",
-    "start": "node server.js",
+    "start": "node starter.js",
     "heroku-postbuild": "cd client && npm install && npm install --only=dev --no-shrinkwrap && npm run build"
   },
   "dependencies": {
     "assert": "^1.4.1",
     "dotenv": "^6.1.0",
+    "esm": "^3.0.84",
     "express": "^4.16.2",
     "mongodb": "^3.1.8",
     "vm2": "^3.6.3"
   },
   "devDependencies": {
+    "babel-preset-env": "^1.7.0",
+    "babel-register": "^6.26.0",
     "concurrently": "^3.5.0"
   }
 }
