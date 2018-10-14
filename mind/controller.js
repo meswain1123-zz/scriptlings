@@ -1,24 +1,14 @@
 // world controller module
 
-var express = require('express');
-const assert = require('assert');
+import express from 'express';
+// import session from 'express-session';
+import db from './db';
 var router = express.Router();
-require('dotenv').config({ silent: true });
-const MongoClient = require('mongodb').MongoClient;
-const dbName = 'scriptlingsDB';
-const url = process.env.MONGO_DB_CONNECTION_STRING;
-const client = new MongoClient(url);
+let myEnv = process.env;
+process.env = {};
 
 // Test route
 router.get('/test', function (req, res) {
-  // client.connect(function(err) {
-  //   assert.equal(null, err);
-  //   console.log("Connected successfully to server");
-
-  //   const db = client.db(dbName);
-
-  //   client.close();
-  // });
   res.send({ message: 'Becky is very hot!'});
 })
 

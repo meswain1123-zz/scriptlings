@@ -2,8 +2,8 @@ import React, { Component } from 'react';
 import logo from './logo.svg';
 import './App.css';
 import {
-    fetchData,
-    // postData,
+    fetchData, 
+    postData,
     // putData
   } from './api';
 
@@ -13,9 +13,6 @@ class App extends Component {
   };
 
   componentDidMount() {
-    this.callApi()
-      .then(res => this.setState({ response: res.express }))
-      .catch(err => console.log(err));
     this.getVersion()
       .then(res => { 
         this.setState({ version: res.version })
@@ -23,13 +20,16 @@ class App extends Component {
       .catch(err => console.log(err));
     this.userTest()
       .then(res => { 
+        this.setState({ greeting: res.message });
         console.log(res);
       })
       .catch(err => console.log(err));
   }
 
   userTest = async () => {
-    const response = await fetchData('/user/test');
+    // const response = await fetchData('/user/test/meswain@gmail.com');
+    const response = await postData('/user/login', { email: 'meswain@gmail.com', password: 'that1guy' });
+    // const response = await postData('/user/register', { email: 'meswain@gmail.com', firstName: 'Matt', lastName: 'Swain', password: 'that1guy' });    
     const body = await response.json();
 
     if (response.status !== 200) throw Error(body.message);
@@ -46,15 +46,6 @@ class App extends Component {
     return body;
   };
 
-  callApi = async () => {
-    const response = await fetchData('/hello');
-    const body = await response.json();
-
-    if (response.status !== 200) throw Error(body.message);
-
-    return body;
-  };
-
   render() {
     return (
       <div className="App">
@@ -62,7 +53,7 @@ class App extends Component {
           <img src={logo} className="App-logo" alt="logo" />
           Welcome to Scriptlings v{this.state.version}!
         </header>
-        <p className="App-intro">{this.state.response}</p>
+        <p className="App-intro">{this.state.greeting}</p>
       </div>
     );
   }
