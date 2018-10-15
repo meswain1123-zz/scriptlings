@@ -18,6 +18,11 @@ class App extends Component {
         this.setState({ version: res.version })
       })
       .catch(err => console.log(err));
+    this.getCounter()
+      .then(res => { 
+        console.log(res);
+      })
+      .catch(err => console.log(err));
     this.userTest()
       .then(res => { 
         this.setState({ greeting: res.message });
@@ -39,6 +44,15 @@ class App extends Component {
 
   getVersion = async () => {
     const response = await fetchData('/version');
+    const body = await response.json();
+
+    if (response.status !== 200) throw Error(body.message);
+
+    return body;
+  };
+
+  getCounter = async () => {
+    const response = await fetchData('/user/getCounter');
     const body = await response.json();
 
     if (response.status !== 200) throw Error(body.message);

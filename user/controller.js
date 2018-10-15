@@ -9,6 +9,14 @@ process.env = {};
 
 db.open();
 
+let counter = 0;
+function intervalFunc() {
+  counter++;
+  console.log(counter);
+}
+
+let intervalObj = setInterval(intervalFunc, 1500);
+
 // // Test route
 // router.get('/test/:email', function (req, res) {
 //   // console.log(req.params);
@@ -43,7 +51,7 @@ router.get('/getUsersByText/:text', function (req, res) {
       // console.log(res);
       req.session.user_id = user._id;
       // console.log(res);
-      res.send({ message: `Welcome to Scriptlings ${user.firstName} ${user.lastName}!  Prepare for awesomeness!`, user: user });
+      res.send({ message: `Welcome to Scriptlings, ${user.firstName}!  Prepare for awesomeness!`, user: user });
     } else {
       res.send({ message: 'There was a problem with your credentials.' });
     }
@@ -58,9 +66,12 @@ router.get('/getUsersByText/:text', function (req, res) {
     res.send(messageObj);
   };
   db.register(respond, req.body);
+}).get('/getCounter', function (req, res) {
+  res.send({ message: counter });
 });
 
 function close() {
+  clearInterval(intervalObj);
   db.close();
 }
 

@@ -68,8 +68,8 @@ app.use('/user', userController);
 const port = process.env.SERVER_PORT || 5000;
 // console.log(process.env);
 const version = "0.0.1";
-// API calls
 
+// API calls
 app.get('/hello', (req, res) => {
     // console.log('hello called');
     res.send({ express: 'Hello Matt!  You\'re freaking awesome!' });
