@@ -52,7 +52,7 @@ class App extends Component {
   };
 
   getCounter = async () => {
-    const response = await fetchData('/user/getCounter');
+    const response = await fetchData('/world/getCounter');
     const body = await response.json();
 
     if (response.status !== 200) throw Error(body.message);

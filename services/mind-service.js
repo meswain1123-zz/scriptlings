@@ -1,8 +1,8 @@
-// world controller module
+// mind service module
 
 import express from 'express';
 // import session from 'express-session';
-import db from './db';
+import db from '../db/mind-db';
 var router = express.Router();
 let myEnv = process.env;
 process.env = {};
