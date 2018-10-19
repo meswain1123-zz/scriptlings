@@ -2,7 +2,7 @@
 
 import express from 'express';
 // import session from 'express-session';
-import db from '../db/mind-db';
+// import db from '../db/mind-db';
 var router = express.Router();
 let myEnv = process.env;
 process.env = {};
