@@ -1,18 +1,24 @@
 // world service module
 
 import express from 'express';
+import { NodeVM, VMScript } from 'vm2';
 // import session from 'express-session';
 import db from '../db/world-db';
 var router = express.Router();
 let myEnv = process.env;
 process.env = {};
 
+const vm = new NodeVM({
+  sandbox: {
+    a: 0
+  }
+});
 db.open();
 
 let userHashObj = {
   userID: 'unique id',
   mindScript: 'string - will change this to VMScript once I understand it.',
-  commandFromUI: 'object - null or defined by UI code.  Commands will only go into the next tick.',
+  commandFromUI: 'object - null or defined by UI script.  Commands will only go into the next tick.',
   scriptlings: [{
     _id: 'unique id',
     body: {
@@ -49,39 +55,100 @@ let userHashObj = {
     }
   }]
 };
+
+let resourceArr = [];
+let resourceHash = {};
 let userArr = null;
 let userHash = {};
 let counter = 0;
 let tickStep = 0; // 0: ready, 1: sense, 2: decide, 3: perform
 let scriptlingCount = 0;
 let processedScriptlings = 0;
+const script = new VMScript("exports.decide = (a) => { console.log(a + 1); return a + 2; };");
+let a = 2;
 function tick() {
-  if (userArr == null) {
-    db.getUsersForWorld(gotUsersForWorld);// This is loading everything from the db after a reboot.
-  }
-  else if (tickStep == 0) {
-    tickStep = 1;
-    counter++;
-    console.log(`tick ${counter}`);
-    scriptlingCount = 0;
-    processedScriptlings = 0;
-    for (let i = 0; i < userArr.length; i++) {
-      const user = userHash[userArr[i]._id];
-      console.log(`${userArr[i]._id}`);
-      for (let j = 0; j < user.scriptlings.length; j++) {
-        const scriptling = user.scriptlings[j];
-        if (scriptling.health.HP > 0) {
-          scriptlingCount++;
-          db.getSense(gotSense, scriptling._id);
+  const m = vm.run(script);
+  console.log(m.decide(a));
+  a++;
+  console.log('did it work?');
+  if (myEnv.worldID) {
+    if (userArr == null) {
+      db.getUsersForWorld(gotUsersForWorld, myEnv.worldID);// This is loading everything from the db after a reboot.
+      db.getResourcesForWorld(gotResourcesForWorld, myEnv.worldID);
+    }
+    else if (tickStep == 0) {
+      tickStep = 1;
+      counter++;
+      console.log(`tick ${counter}`);
+      scriptlingCount = 0;
+      processedScriptlings = 0;
+      for (let i = 0; i < userArr.length; i++) {
+        const user = userHash[userArr[i]._id];
+        console.log(`${userArr[i]._id}`);
+        for (let j = 0; j < user.scriptlings.length; j++) {
+          const scriptling = user.scriptlings[j];
+          if (scriptling.health.HP > 0) {
+            scriptlingCount++;
+            db.getSense(gotSense, scriptling._id, myEnv.worldID);
+          }
         }
       }
+      if (scriptlingCount == 0) {
+        tickStep = 0;
+      }
     }
-    if (scriptlingCount == 0) {
-      tickStep = 0;
+    else {
+      console.log(`tickStep ${tickStep}: ${processedScriptlings}/${scriptlingCount}`);
     }
   }
-  else {
-    console.log(`tickStep ${tickStep}: ${processedScriptlings}/${scriptlingCount}`);
+  else if (false) {
+    function worldCreated(world) {
+      console.log(world);
+    }
+    const options = {
+      resourceFormulae: [{
+        name: 'Iron', 
+        rarity: 20, // In each 100x100 worldBlock, how many nodes should there be?
+        density: {
+          density: 4, // How many nodes to put in a group
+          var: 2, // Node groups will be density +/- var big
+        },
+        respawnTimer: {
+          time: 100, // How many minutes after 'death' before respawn
+          var: 10, // On 'death' a respawn time is set to currentTime + (time +/- var) minutes
+        },
+        passability: {
+          speedFactor: 0, // When passing through a resource, speed is multiplied by speedFactor.  Should be 0<=speedFactor<=1.
+          HP: 0, // When passing through a resource scriptling's HP lowers by this number each tick.
+          // REMINDER: I don't want these for v1, but I like the idea of them.
+          // senses: {
+          //   factor: 1, // When passing through a resource sense radius is multiplied by factor.  Should be 0<=factor<=1.
+          //   distortion: 0, // When passing through a resource sense will place sensed items up to this number off from actual location.
+          //   hallucination: 0, // When passing through a resource sense will have chance to 
+          // },
+          // misdirection: 0, // When passing through a resource your direction can be sent off course by an angle up to this.
+        }
+      }],
+      defaultUIScript: "", // I'll figure this out later
+      scriptlingFormula: {
+        cost: 
+        [ // Cost to make a new scriptling
+          {
+          resource: 'iron',
+          amount: 50
+          }
+        ], 
+        defaultMindScript: new VMScript("module.exports = { sense, memory };"), // Default mindScript to give the user something to start with.  mindScript executes every tick.
+        birthScript: "console.log('Good Morning, Dave!);", // Executes on scriptling creation.
+        upkeepScript: "console.log(\"I'm hungry\");", // Executes every hour.  Basically it's to make scriptlings require maintenance, food, etc.
+        deathScript: "console.log(\"This was a triumph!  I'm making a note here: 'Huge Success!'\");" // Executes when a scriptling dies.
+      },
+      // mobFormulae: options.mobFormulae,
+      // wallFormulae: options.wallFormulae, // REMINDER: I do want to add these features eventually, but I also want to get something working soonish.  Leaving them out for now.
+      // itemFormulae: options.itemFormulae,
+      // researchFormulae: options.researchFormulae
+    };
+    db.createWorld(worldCreated, options);
   }
 }
 
@@ -137,20 +204,46 @@ function performActionsMaybe() {
 function MoveTo(scriptling, target, location, type) {
   function go(loc) {
     // Calculate the difference in location, divide by distance, multiply by speed, apply.
-    const locDiff = { x: scriptling.x - loc.x, y: scriptling.y - loc.y };
+    const locDiff = { x: scriptling.location.x - loc.x, y: scriptling.location.y - loc.y };
     const distance = Math.sqrt(locDiff.x * locDiff.x + locDiff.y * locDiff.y);
+    const newLoc = {};
     let status = 'In Progress';
     if (distance <= scriptling.sense.speed) {
-      scriptling.location.x = loc.x;
-      scriptling.location.y = loc.y;
+      newLoc.x = loc.x;
+      newLoc.y = loc.y;
 
       status = 'Arrived';
     }
     else {
       const velocity = { x: locDiff.x / distance * scriptling.sense.speed, y: locDiff.y / distance * scriptling.sense.speed };
-      scriptling.location.x -= velocity.x;
-      scriptling.location.y -= velocity.y;
+      newLoc.x -= velocity.x;
+      newLoc.y -= velocity.y;
     }
+
+    const collision = detectCollision(scriptling.location, newLoc);
+
+    if (collision.detected) {
+      status += collision.status;
+      if (collision.effects.HP) {
+        scriptling.health.HP = Math.min(100, scriptling.health.HP + collision.effects.HP);
+      }
+      if (collision.effects.speed) {
+        if (distance <= scriptling.sense.speed * collision.effects.speed) {
+          newLoc.x = loc.x;
+          newLoc.y = loc.y;
+    
+          status = 'Arrived';
+        }
+        else {
+          const velocity = { x: locDiff.x / distance * scriptling.sense.speed * collision.effects.speed, y: locDiff.y / distance * scriptling.sense.speed * collision.effects.speed };
+          newLoc.x -= velocity.x;
+          newLoc.y -= velocity.y;
+        }
+      }
+    }
+    
+    scriptling.location.x = newLoc.x;
+    scriptling.location.y = newLoc.y;
 
     db.updateScriptlingLocation(scriptling);
 
@@ -182,6 +275,13 @@ function MoveTo(scriptling, target, location, type) {
   else {
     performedAction(scriptling.userID, scriptling._id, 'Move To requires a target or location.');
   }
+}
+function detectCollision(loc1, loc2) {
+  // For true collision detection you need to check for any part of the line between loc1 and loc2 being within .5 of a wall or resource piece.
+  // The calculations for that are a lot more intense than I want to do.  
+  // I don't intend to have anything moving so fast that from one tick to another would take it from one side of an object to the other.  
+  // So I feel safe cheating and just checking for loc1 and loc2 being within 1 of a wall or resource piece.
+
 }
 
 function Attack(scriptling, target, location, type) {
@@ -273,56 +373,64 @@ function calcDamage(scriptling, targetScriptling) {
   }
 }
 
-function Gather(scriptling, target, location, type) {
+// function Gather(scriptling, target, location, type) {
 
-  performedAction(scriptling.userID, scriptling._id, 'In Progress');
-}
+//   performedAction(scriptling.userID, scriptling._id, 'In Progress');
+// }
 
-function Drop(scriptling, target, location, type) {
+// function Drop(scriptling, target, location, type) {
 
-  performedAction(scriptling.userID, scriptling._id, 'In Progress');
-}
+//   performedAction(scriptling.userID, scriptling._id, 'In Progress');
+// }
 
-function MakeItem(scriptling, target, location, type) {
+// function MakeItem(scriptling, target, location, type) {
 
-  performedAction(scriptling.userID, scriptling._id, 'In Progress');
-}
+//   performedAction(scriptling.userID, scriptling._id, 'In Progress');
+// }
 
-function MakeWall(scriptling, target, location, type) {
+// function MakeWall(scriptling, target, location, type) {
 
-  performedAction(scriptling.userID, scriptling._id, 'In Progress');
-}
+//   performedAction(scriptling.userID, scriptling._id, 'In Progress');
+// }
 
-function MakeScriptling(scriptling, target, location, type) {
+// function MakeScriptling(scriptling, target, location, type) {
 
-  performedAction(scriptling.userID, scriptling._id, 'In Progress');
-}
+//   performedAction(scriptling.userID, scriptling._id, 'In Progress');
+// }
 
-function RepairItem(scriptling, target, location, type) {
+// function RepairItem(scriptling, target, location, type) {
 
-  performedAction(scriptling.userID, scriptling._id, 'In Progress');
-}
+//   performedAction(scriptling.userID, scriptling._id, 'In Progress');
+// }
 
-function RepairWall(scriptling, target, location, type) {
+// function RepairWall(scriptling, target, location, type) {
 
-  performedAction(scriptling.userID, scriptling._id, 'In Progress');
-}
+//   performedAction(scriptling.userID, scriptling._id, 'In Progress');
+// }
 
-function RepairScriptling(scriptling, target, location, type) {
+// function RepairScriptling(scriptling, target, location, type) {
 
-  performedAction(scriptling.userID, scriptling._id, 'In Progress');
-}
+//   performedAction(scriptling.userID, scriptling._id, 'In Progress');
+// }
 
-function Research(scriptling, target, location, type) {
+// function Research(scriptling, target, location, type) {
 
-  performedAction(scriptling.userID, scriptling._id, 'In Progress');
-}
+//   performedAction(scriptling.userID, scriptling._id, 'In Progress');
+// }
+
+// // Says a message which will be in the sense of all scriptlings within range on the next tick
+// function Say(scriptling, target, location, type) {
+
+//   performedAction(scriptling.userID, scriptling._id, 'In Progress');
+// }
 
 const actionFunctions = { 
-  MoveTo, Attack, Gather, Drop, 
-  MakeItem, MakeWall, MakeScriptling, 
-  RepairItem, RepairWall, RepairScriptling, 
-  Research };
+  MoveTo, Attack, 
+  // Gather, Drop, 
+  // MakeItem, MakeWall, MakeScriptling, 
+  // RepairItem, RepairWall, RepairScriptling, 
+  // Research, Say
+};
 function performAction(scriptling) {
   if (scriptling != null && scriptling.action != null && scriptling.action.action != null && scriptling.action.action != "") {
     const actionFunction = actionFunctions[scriptling.action.action];
@@ -353,35 +461,49 @@ function gotUsersForWorld(u) {
 }
 
 function addUserToHash(user) {
+  console.log(user);
   let userID = user._id;
   // This if is probably redundant, but I want to leave it for now.
   if (userHash[userID] == undefined || userHash[userID] == null) {
     userHash[userID] = {
       userID: userID,
-      mindScript: compileMindScript(user.mindCode),
+      mindScript: compileMindScript(user.mindScript),
       commandFromUI: null,
       scriptlings: [],
       scriptlingHash: {}
     };
 
     function gotScriptlings(userID, scriptlings) {
+      console.log(userHash);
       userHash[userID].scriptlings = scriptlings;
       for (let i = 0; i < scriptlings.length; i++) {
         userHash[userID].scriptlingHash[scriptlings[i]._id] = scriptlings[i];
       }
     }
 
-    db.getScriptlingsForUser(gotScriptlings, userID);
+    db.getScriptlingsForUser(gotScriptlings, userID, myEnv.worldID);
   }
 }
+
+function gotResourcesForWorld(resources) {
+  resourceArr = resources;
+  for (let i = 0; i < resourceArr.length; i++) {
+    resourceHash[resourceArr[i]._id] = resourceArr[i];
+  }
+}
+
+// // REMINDER: This is part of the Mob Spawning process.  Mobs will be added later.
+// function getRandomInventory(inventoryBag) {
+//   return inventoryBag[Math.floor(Math.random() * inventoryBag.length)];
+// }
 
 // This is where we use the mindScript to decide on an action.
 function decide(sense, actionStatus, commandFromUI, memory) {
   return { action: { action: "" }, memory: {} };
 }
 
-function compileMindScript(mindCode) {
-  return mindCode;
+function compileMindScript(mindScript) {
+  return mindScript;
 }
 
 let intervalObj = setInterval(tick, 1500);
@@ -393,15 +515,36 @@ router.get('/test', function (req, res) {
   res.send({ message: counter });
 }).post('/join', function (req, res) {
   function respond(user) {
-    // user should be a single doc of the same structure as getUsersForWorld
-    userArr.push(user);
-    addUserToHash(user);
-    res.send({ message: 'Welcome!' });
+    let count = 0;
+    function respond2() {
+      count++;
+      if (count < 5) {
+        const newStartLocation = { x: startLocation.x + count, y: startLocation.y };
+        db.createScriptlingForUser(respond2, userID, myEnv.worldID, newStartLocation);
+      }
+      else {
+        function respond3(user) {
+          // user should be a single doc of the same structure as getUsersForWorld
+          console.log(user);
+          userArr.push(user);
+          addUserToHash(user);
+          res.send({ message: 'Welcome!' });
+        }
+        console.log(userID);
+        db.getUserForWorld(respond3, userID, myEnv.worldID);
+      }
+    }
+  
+    db.createScriptlingForUser(respond2, userID, myEnv.worldID, startLocation);
   };
 
-  //REMINDER: I need to move the logic from addUserToWorld to this.  db should only hold the actual db queries.
-
-  db.addUserToWorld(respond, req.session.userID, req.body.startLocation);
+  const sCount = userHash[req.session.userID].scriptlings.count();
+  if (sCount > 0) {
+    res.send({ message: `The user already has ${sCount} scriptlings in the world.` });
+  }
+  else {
+    db.addUserToWorld(respond, req.session.userID, myEnv.worldID, req.body.startLocation);
+  }
 }).post('/command', function (req, res) {
   console.log(`Command recieved: ${req.session.userID} ${req.body.commandFromUI}`);
   userHash[req.session.userID].commandFromUI = req.body.commandFromUI;

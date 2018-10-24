@@ -27,6 +27,11 @@ class App extends Component {
       .then(res => { 
         this.setState({ greeting: res.message });
         console.log(res);
+        this.join()
+          .then(res => { 
+            console.log(res);
+          })
+          .catch(err => console.log(err));
       })
       .catch(err => console.log(err));
   }
@@ -34,6 +39,17 @@ class App extends Component {
   userTest = async () => {
     // const response = await fetchData('/user/test/meswain@gmail.com');
     const response = await postData('/user/login', { email: 'meswain@gmail.com', password: 'that1guy' });
+    // const response = await postData('/user/register', { email: 'meswain@gmail.com', firstName: 'Matt', lastName: 'Swain', password: 'that1guy' });    
+    const body = await response.json();
+
+    if (response.status !== 200) throw Error(body.message);
+
+    return body;
+  };
+
+  join = async () => {
+    // const response = await fetchData('/user/test/meswain@gmail.com');
+    const response = await postData('/world/join', { startLocation: { x: 0, y: 0} });
     // const response = await postData('/user/register', { email: 'meswain@gmail.com', firstName: 'Matt', lastName: 'Swain', password: 'that1guy' });    
     const body = await response.json();
 
