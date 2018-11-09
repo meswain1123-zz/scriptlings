@@ -8,11 +8,7 @@ var router = express.Router();
 let myEnv = process.env;
 process.env = {};
 
-const vm = new NodeVM({
-  sandbox: {
-    a: 0
-  }
-});
+const vm = new NodeVM();
 db.open();
 
 let userHashObj = {
@@ -64,13 +60,8 @@ let counter = 0;
 let tickStep = 0; // 0: ready, 1: sense, 2: decide, 3: perform
 let scriptlingCount = 0;
 let processedScriptlings = 0;
-const script = new VMScript("exports.decide = (a) => { console.log(a + 1); return a + 2; };");
-let a = 2;
+
 function tick() {
-  const m = vm.run(script);
-  console.log(m.decide(a));
-  a++;
-  console.log('did it work?');
   if (myEnv.worldID) {
     if (userArr == null) {
       db.getUsersForWorld(gotUsersForWorld, myEnv.worldID);// This is loading everything from the db after a reboot.
@@ -101,55 +92,6 @@ function tick() {
       console.log(`tickStep ${tickStep}: ${processedScriptlings}/${scriptlingCount}`);
     }
   }
-  else if (false) {
-    function worldCreated(world) {
-      console.log(world);
-    }
-    const options = {
-      resourceFormulae: [{
-        name: 'Iron', 
-        rarity: 20, // In each 100x100 worldBlock, how many nodes should there be?
-        density: {
-          density: 4, // How many nodes to put in a group
-          var: 2, // Node groups will be density +/- var big
-        },
-        respawnTimer: {
-          time: 100, // How many minutes after 'death' before respawn
-          var: 10, // On 'death' a respawn time is set to currentTime + (time +/- var) minutes
-        },
-        passability: {
-          speedFactor: 0, // When passing through a resource, speed is multiplied by speedFactor.  Should be 0<=speedFactor<=1.
-          HP: 0, // When passing through a resource scriptling's HP lowers by this number each tick.
-          // REMINDER: I don't want these for v1, but I like the idea of them.
-          // senses: {
-          //   factor: 1, // When passing through a resource sense radius is multiplied by factor.  Should be 0<=factor<=1.
-          //   distortion: 0, // When passing through a resource sense will place sensed items up to this number off from actual location.
-          //   hallucination: 0, // When passing through a resource sense will have chance to 
-          // },
-          // misdirection: 0, // When passing through a resource your direction can be sent off course by an angle up to this.
-        }
-      }],
-      defaultUIScript: "", // I'll figure this out later
-      scriptlingFormula: {
-        cost: 
-        [ // Cost to make a new scriptling
-          {
-          resource: 'iron',
-          amount: 50
-          }
-        ], 
-        defaultMindScript: new VMScript("module.exports = { sense, memory };"), // Default mindScript to give the user something to start with.  mindScript executes every tick.
-        birthScript: "console.log('Good Morning, Dave!);", // Executes on scriptling creation.
-        upkeepScript: "console.log(\"I'm hungry\");", // Executes every hour.  Basically it's to make scriptlings require maintenance, food, etc.
-        deathScript: "console.log(\"This was a triumph!  I'm making a note here: 'Huge Success!'\");" // Executes when a scriptling dies.
-      },
-      // mobFormulae: options.mobFormulae,
-      // wallFormulae: options.wallFormulae, // REMINDER: I do want to add these features eventually, but I also want to get something working soonish.  Leaving them out for now.
-      // itemFormulae: options.itemFormulae,
-      // researchFormulae: options.researchFormulae
-    };
-    db.createWorld(worldCreated, options);
-  }
 }
 
 ///////////// I need to put sense onto scriptling, and I need to make getSense also getHealth.  
@@ -173,7 +115,7 @@ function decideMaybe() {
       for (let j = 0; j < user.scriptlings.length; j++) {
         const scriptling = user.scriptlings[j];
         if (scriptling.health.HP > 0) {
-          const response = decide(scriptling, user.commandFromUI);
+          const response = decide(user, scriptling);
           scriptling.action = response.action;
           scriptling.memory = response.memory;
           db.setScriptlingActionAndMemory(itsSet, scriptlingID, action, memory);
@@ -467,7 +409,8 @@ function addUserToHash(user) {
   if (userHash[userID] == undefined || userHash[userID] == null) {
     userHash[userID] = {
       userID: userID,
-      mindScript: compileMindScript(user.mindScript),
+      mindScript: user.mindScript,
+      mind: compileMindScript(user.mindScript),
       commandFromUI: null,
       scriptlings: [],
       scriptlingHash: {}
@@ -498,12 +441,19 @@ function gotResourcesForWorld(resources) {
 // }
 
 // This is where we use the mindScript to decide on an action.
-function decide(sense, actionStatus, commandFromUI, memory) {
-  return { action: { action: "" }, memory: {} };
+function decide(user, scriptling) {
+  const response = user.mind.decide(scriptling.sense, scriptling.actionStatus, user.commandFromUI, scriptling.memory);
+  return response;
 }
 
 function compileMindScript(mindScript) {
-  return mindScript;
+  const script = new VMScript(`exports.decide = (sense, actionStatus, commandFromUI, memory) => { 
+    ${mindScript}
+    return { sense, memory };
+  };`);
+  const mind = vm.run(script); // mind can be put into a field on the scriptling in the hash, and this part and the above are run when loading user.
+  // console.log(mind);
+  return mind;
 }
 
 let intervalObj = setInterval(tick, 1500);

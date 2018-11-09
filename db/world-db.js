@@ -171,6 +171,7 @@ function getAvailableStartLocations(respond, worldID) {
 function createWorld(respond, options) {  
   db.collection('world').insertOne(
     { 
+      worldBlockFormula: options.worldBlockFormula,
       resourceFormulae: options.resourceFormulae,
       defaultUIScript: options.defaultUIScript,
       scriptlingFormula: options.scriptlingFormula,
@@ -185,22 +186,36 @@ function createWorld(respond, options) {
   );
 }
 
-function addResourceType(respond, worldID, name, passability, spawnTimer) {
+// // Decided to remove this because I'm just going to use the resourceFormulae on the world.
+// // As part of that I'm going to be changing the typeIDs for resources to just type, and they'll be strings.
+// function addResourceType(respond, worldID, name, passability, spawnTimer) {
+//   db.collection('resourceType').insertOne(
+//     {
+//       worldID: ObjectID(worldID), name,
+//       passability, spawnTimer
+//     }, function(err, docsInserted) {
+//       respond(docsInserted[0]);
+//     }
+//   );
+// }
+
+function addWorldResource(respond, worldID, location, type) {
   db.collection('worldResource').insertOne(
     {
-      worldID: ObjectID(worldID), name,
-      passability, spawnTimer
+      worldID: ObjectID(worldID), location, type, quantity: 100, respawnTime: null
     }, function(err, docsInserted) {
       respond(docsInserted[0]);
     }
   );
 }
 
-function addWorldResource(respond, worldID, location, typeID) {
-  db.collection('worldResource').insertOne(
-    {
-      worldID: ObjectID(worldID), location, typeID, quantity: 100, deathTime: null
-    }, function(err, docsInserted) {
+function addWorldResources(respond, array) {
+  db.collection('worldResource').insertMany(array, 
+    function(err, docsInserted) {
+      if (err) {
+        console.log(err);
+        throw err;
+      }
       respond(docsInserted[0]);
     }
   );
@@ -213,7 +228,7 @@ function respawnResource(respond, worldResourceID) {
     }, 
     { $set: 
       { 
-        deathTime: null, quantity: 100
+        respawnTime: null, quantity: 100
       }
     });
   respond({ message: `Scriptling ${scriptlingID} updated!`});
@@ -319,6 +334,7 @@ module.exports = {
   getSense, getCommand, updateCommand, 
   setScriptlingActionAndMemory, updateScriptlingLocation, updateScriptlingStats, 
   addUserToWorld, getUserForWorld, getAvailableStartLocations, createWorld,
-  addResourceType, addWorldResource, respawnResource, getResourcesForWorld, updateResource, 
+  addResourceType, addWorldResource, addWorldResources, 
+  respawnResource, getResourcesForWorld, updateResource, 
   // addWorldMob, respawnMob, getMobsForWorld, updateMobLocation, updateMobStats
 };
