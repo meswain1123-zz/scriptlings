@@ -30,3 +30,7 @@
     transform: rotate(360deg);
   }
 }
+
+.courier {
+  font-family: 'Courier New', Courier, monospace;
+}
