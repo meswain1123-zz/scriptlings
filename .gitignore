@@ -5,10 +5,7 @@
 /*/node_modules
 client/node_modules
 server/node_modules
-terraform/application/.terraform
-terraform/application/terraform.tfstate
-terraform/application/terraform.tfstate.backup
-terraform/application/tfplan
+terraform
 
 # testing
 /coverage

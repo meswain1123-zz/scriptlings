@@ -18,7 +18,7 @@ let userHashObj = {
   scriptlings: [{
     _id: 'unique id',
     body: {
-      location: { type: "Point", coordinates: { x: 'float', y: 'float', z: 'float' }},
+      location: { type: "Point", x: 'float', y: 'float', z: 'float' },
       health: {
         HP: 'int',
         energy: 'int',
@@ -103,11 +103,8 @@ function getSense(respond, scriptling, user) {
       location: 
       { 
         type: "Point", 
-        coordinates: 
-        { 
-          x: scriptling.location.coordinates.x + user.startLocation.coordinates.x, 
-          y: scriptling.location.coordinates.y + user.startLocation.coordinates.y
-        }
+        x: scriptling.location.x + user.startLocation.x, 
+        y: scriptling.location.y + user.startLocation.y
       },
       health: scriptling.health,
       inventory: scriptling.inventory

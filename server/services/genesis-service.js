@@ -64,7 +64,7 @@ function generateResourcesForBlock(respond, world, block) {
         const resourceType = calcResourceType(world.worldBlockFormula.wallResources);
         resourceArr.push({
           worldID: ObjectID(world._id), 
-          location: { type: "Point", coordinates: { x: block.corners[0].x + i, y: block.corners[0].y + j}}, 
+          location: { type: "Point", x: block.corners[0].x + i, y: block.corners[0].y + j }, 
           type: resourceType, 
           quantity: 100, 
           respawnTime: null
@@ -79,7 +79,7 @@ function generateResourcesForBlock(respond, world, block) {
         const resourceType = calcResourceType(world.worldBlockFormula.wallResources);
         resourceArr.push({
           worldID: ObjectID(world._id), 
-          location: { type: "Point", coordinates: { x: block.corners[3].x + i, y: block.corners[3].y - j }}, 
+          location: { type: "Point", x: block.corners[3].x + i, y: block.corners[3].y - j }, 
           type: resourceType, 
           quantity: 100, 
           respawnTime: null
@@ -94,7 +94,7 @@ function generateResourcesForBlock(respond, world, block) {
         const resourceType = calcResourceType(world.worldBlockFormula.wallResources);
         resourceArr.push({
           worldID: ObjectID(world._id), 
-          location: { type: "Point", coordinates: { x: block.corners[0].x + j, y: block.corners[0].y + i }}, 
+          location: { type: "Point", x: block.corners[0].x + j, y: block.corners[0].y + i }, 
           type: resourceType, 
           quantity: 100, 
           respawnTime: null
@@ -109,7 +109,7 @@ function generateResourcesForBlock(respond, world, block) {
         const resourceType = calcResourceType(world.worldBlockFormula.wallResources);
         resourceArr.push({
           worldID: ObjectID(world._id), 
-          location: { type: "Point", coordinates: { x: block.corners[1].x - j - 1, y: block.corners[1].y + i}}, 
+          location: { type: "Point", x: block.corners[1].x - j - 1, y: block.corners[1].y + i }, 
           type: resourceType, 
           quantity: 100, 
           respawnTime: null
@@ -135,7 +135,7 @@ function generateResourcesForBlock(respond, world, block) {
         for (let k = 0; k < locations.length; k++) {
           const r = {
             worldID: ObjectID(world._id), 
-            location: { type: "Point", coordinates: { x: locations[k].x, y: locations[k].y }}, 
+            location: { type: "Point", x: locations[k].x, y: locations[k].y }, 
             type: resource.name, 
             quantity: 100, 
             respawnTime: null

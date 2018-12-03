@@ -54,7 +54,18 @@ function createScriptlingForUser(respond, userID, worldID, location) {
       worldID: ObjectID(worldID), 
       location, 
       memory: {}, 
-      health: { HP: 100 }
+      health: { HP: 100 },
+      inventory: {
+        full: false,
+        max: 100,
+        current: 0, // This is a sum of all the quantities in resources.
+        resources: {
+          // type: 'string', quantity: 'int'
+        }
+      },
+      weapon: null,
+      armor: null,
+      item: null
     });
   respond({ message: 'scriptling created' });
 }
@@ -148,15 +159,15 @@ function senseResources(respond, scriptling, worldID, senseRange) {
   const maxY = scriptling.location.y + senseRange;
   const minX = scriptling.location.x - senseRange;
   const maxX = scriptling.location.x + senseRange;
-  console.log(minX);
-  console.log(maxX);
-  console.log(minY);
-  console.log(maxY);
+  // console.log(minX);
+  // console.log(maxX);
+  // console.log(minY);
+  // console.log(maxY);
   db.collection('worldResource')
     .find({ 
       worldID: ObjectID(worldID), 
-      "location.coordinates.x": { $gte: minX, $lte: maxX }, 
-      "location.coordinates.y": { $gte: minY, $lte: maxY } 
+      "location.x": { $gte: minX, $lte: maxX }, 
+      "location.y": { $gte: minY, $lte: maxY } 
     }).sort( { _id: 1 } )
     .toArray(function (err, docs) {
     // console.log(docs);
@@ -192,14 +203,27 @@ function getUserForWorld(respond, userID, worldID) {
   });
 }
 
-function updateScriptlingLocation(respond, scriptlingID, location) {
+function updateScriptlingLocation(scriptling) {
   // console.log(`Set Scriptling Location: ${scriptlingID}`);
   const db = client.db(dbName);
   db.collection('scriptling').updateOne(
-    { _id: ObjectID(scriptlingID) }, 
+    { _id: ObjectID(scriptling._id) }, 
     { $set: 
       { 
-        location
+        location: scriptling.location
+      }
+    });
+  // respond({ message: `Scriptling ${scriptlingID} updated!`});
+}
+
+function updateScriptlingInventory(respond, scriptling) {
+  // console.log(`Update Scriptling Inventory: ${scriptlingID}`);
+  const db = client.db(dbName);
+  db.collection('scriptling').updateOne(
+    { _id: ObjectID(scriptling._id) }, 
+    { $set: 
+      { 
+        inventory: scriptling.inventory
       }
     });
   respond({ message: `Scriptling ${scriptlingID} updated!`});
@@ -358,7 +382,58 @@ function updateResource(respond, worldResourceID, quantity, respawnTime) {
         quantity, respawnTime
       }
     });
-  respond({ message: `Scriptling ${scriptlingID} updated!`});
+  respond({ message: `Resource ${worldResourceID} updated!`});
+}
+
+function getDroppedResources(respond, worldID, skip, take) {
+  // console.log(`Getting dropped resources: ${worldID}`); 
+  const db = client.db(dbName);
+
+  db.collection('droppedResource')
+    .find({ worldID: ObjectID(worldID) }).sort( { _id: 1 } )
+    .skip(skip).limit(take).toArray(function (err, docs) {
+    // console.log(docs);
+    if (err) throw err;
+    respond(docs);
+  });
+}
+
+function addDroppedResource(respond, droppedResource) {
+  const db = client.db(dbName);
+  db.collection('droppedResource').insertOne(
+    { 
+      worldID: droppedResource.worldID,
+      location: droppedResource.location, 
+      type: droppedResource.type, 
+      quantity: droppedResource.quantity
+    }, function(err, res) {
+      // console.log(res);
+      respond(res.ops[0]);
+    }
+  );
+}
+
+function updateDroppedResource(respond, droppedResource) {
+  const db = client.db(dbName);
+  db.collection('droppedResource').updateOne(
+    {
+      _id: ObjectID(droppedResource._id)
+    }, 
+    { $set: 
+      { 
+        quantity: droppedResource.quantity
+      }
+    });
+  respond({ message: `Dropped Resource ${droppedResource._id} updated!`});
+}
+
+function deleteDroppedResource(respond, droppedResource) {
+  const db = client.db(dbName);
+  db.collection('droppedResource').deleteOne(
+    {
+      _id: ObjectID(droppedResource._id)
+    });
+  respond({ message: `Dropped Resource ${droppedResource._id} deleted!`});
 }
 
 // // Mobs are auto-spawned scriptlings.  
@@ -435,11 +510,13 @@ module.exports = {
   open, close, 
   getScriptlings, getScriptlingsForUser, createScriptlingForUser, getUsersForWorld,
   senseScriptlings, senseResources, getCommand, updateCommand, 
-  setScriptlingActionAndMemory, updateScriptlingLocation, updateScriptlingStats, 
+  setScriptlingActionAndMemory, 
+  updateScriptlingLocation, updateScriptlingStats, updateScriptlingInventory,
   addUserToWorld, getUserForWorld, getAvailableStartLocations, 
   createWorld, getWorld, createWorldBlock, getWorldBlock,
   addWorldResource, addWorldResources, 
   respawnResource, getWorldResources, updateResource, 
+  addDroppedResource, updateDroppedResource, deleteDroppedResource, getDroppedResources,
   // addWorldMob, respawnMob, getMobsForWorld, updateMobLocation, updateMobStats
 };
 

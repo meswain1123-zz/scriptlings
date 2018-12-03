@@ -13,11 +13,14 @@ import {
     // ControlLabel 
   } from 'react-bootstrap';
 
+let intervalObj = null;
+let processing = false;
+
 class App extends Component {
   constructor(props) {
     super(props);
     this.state = {
-      worldID: "5bfda8790114f913dabb1791",
+      worldID: "5bff077591160233b8f9c9b6",
       user: { email: 'meswain@gmail.com', password: 'that1guy' }
     };
     this.loginClick = this.loginClick.bind(this);
@@ -27,12 +30,14 @@ class App extends Component {
     this.userScriptlingsClick = this.userScriptlingsClick.bind(this);
     this.worldClick = this.worldClick.bind(this);
     this.createWorldClick = this.createWorldClick.bind(this);
+    this.worldTick = this.worldTick.bind(this);
+    this.senseTick = this.senseTick.bind(this);
   }
 
   loginClick() {
     this.userTest()
       .then(res => { 
-        console.log(res);
+        // console.log(res);
         this.setState({ greeting: res.message, user: res.user });
       })
       .catch(err => console.log(err));
@@ -41,7 +46,7 @@ class App extends Component {
   joinClick() {
     this.join()
       .then(res => { 
-        console.log(res);
+        // console.log(res);
       })
       .catch(err => console.log(err));
   }
@@ -49,7 +54,7 @@ class App extends Component {
   startClick() {
     this.startWorld()
       .then(res => { 
-        console.log('Started');
+        // console.log('Started');
       })
       .catch(err => console.log(err));
   }
@@ -57,185 +62,277 @@ class App extends Component {
   stopClick() {
     this.stopWorld()
       .then(res => { 
-        console.log('Stopped');
+        // console.log('Stopped');
       })
       .catch(err => console.log(err));
   }
 
   userScriptlingsClick() {
-    this.getUserScriptings()
-      .then(res => { 
-        console.log(res);
-
-        const locationArr = [];
-        const strArr = [];
-        const locationHash = {};
-
-        let maxX = 0;
-        let maxY = 0;
-        let minX = 0;
-        let minY = 0;
-        res.forEach( scriptling => {
-          console.log(scriptling);
-          if (!isNaN(scriptling.self.location.y)) {
-            // REMINDER: I should probably change locationHash to hold arrays of objects.  
-            // Then when preparing to render it can go through each element and decide what to display.
-            if (locationHash[scriptling.self.location.y] === undefined || 
-              locationHash[scriptling.self.location.y] === null) {
-              locationHash[scriptling.self.location.y] = {};
-            }
-            locationHash[scriptling.self.location.y][scriptling.self.location.x] = scriptling;
-            // console.log(scriptling.location.x, scriptling.type);
-            maxX = Math.max(maxX, scriptling.self.location.x);
-            maxY = Math.max(maxY, scriptling.self.location.y);
-            minX = Math.min(minX, scriptling.self.location.x);
-            minY = Math.min(minY, scriptling.self.location.y);
-
-            scriptling.resources.forEach( resource => {
-              locationHash[resource.location.y][resource.location.x] = resource;
-              maxX = Math.max(maxX, resource.location.x);
-              maxY = Math.max(maxY, resource.location.y);
-              minX = Math.min(minX, resource.location.x);
-              minY = Math.min(minY, resource.location.y);
-            });
-            scriptling.scriptlings.forEach( s => {
-              locationHash[s.location.y][s.location.x] = s;
-              maxX = Math.max(maxX, s.location.x);
-              maxY = Math.max(maxY, s.location.y);
-              minX = Math.min(minX, s.location.x);
-              minY = Math.min(minY, s.location.y);
-            });
-          }
-        });
-        console.log(minX + ' ' +maxX + ' ' + minY + ' ' + maxY);
-        const tempRow = [{ location: { x: null, y: null }, type: `-` }];
-        let tempStrRow = '-';
-        for (let i = minX; i <= maxX; i++) {
-          tempRow.push({ location: { x: i, y: null }, type: `${i%10}` });
-          tempStrRow += `${i%10}`;
-        }
-        locationArr.push(tempRow);
-        strArr.push(tempStrRow);
-        for (let i = minY; i <= maxY; i++) {
-          const hashRow = locationHash[i];
-          const arrRow = [];
-          const iStr = (`${i}`);
-          let strRow = iStr.substring(iStr.length - 1);
-          for (let j = minX; j <= maxX; j++) {
-            if (hashRow === undefined || hashRow === null || 
-              hashRow[j] === undefined || hashRow[j] === null) {
-              arrRow.push({ location: { x: j, y: i }, type: 'Empty' });
-              strRow += '_';
-            }
-            else {
-              // console.log(hashRow[j].type);
-              arrRow.push(hashRow[j]);
-              if (hashRow[j].type === undefined) {
-                strRow += 'S';
-              }
-              else {
-                strRow += hashRow[j].type.substring(0, 1);
-              }
-            }
-          }
-          locationArr.push(arrRow);
-          strArr.push(strRow);
-        }
-        console.log(locationArr);
-        console.log(strArr);
-        this.setState({ locationArr, strArr });
-      })
-      .catch(err => console.log(err));
+    if (intervalObj !== null) {
+      clearInterval(intervalObj);
+      intervalObj = null;
+      processing = false;
+    }
+    intervalObj = setInterval(this.senseTick, 3000);
   }
 
-  worldClick() {
-    this.getWorldResources()
-      .then(res => { 
-        console.log(res);
-
-        this.setState({ resourceArr: res });
-
-        this.getWorldScriptings()
-          .then(res => {
-            console.log(res);
-
+  senseTick() {
+    if (!processing) {
+      processing = true;
+      this.getUserScriptings()
+        .then(res => { 
+          // console.log(res);
+          if (res === undefined || res === null || res.length === 0) {
+            processing = false;
+          }
+          else {
             const locationArr = [];
             const strArr = [];
             const locationHash = {};
 
-            let maxX = 0;
-            let maxY = 0;
-            this.state.resourceArr.forEach( resource => {
-              if (!isNaN(resource.location.coordinates.y)) {
-                if (locationHash[resource.location.coordinates.y] === undefined || 
-                  locationHash[resource.location.coordinates.y] === null) {
-                  locationHash[resource.location.coordinates.y] = {};
-                }
-                locationHash[resource.location.coordinates.y][resource.location.coordinates.x] = resource;
-                // console.log(resource.location.coordinates.x, resource.type);
-                maxX = Math.max(maxX, resource.location.coordinates.x);
-                maxY = Math.max(maxY, resource.location.coordinates.y);
-              }
-            });
-            // Do the scriptlings after the resources so they trump resources on display.
-            // This is just temporary.  
+            let maxX = res[0].self.location.x;
+            let maxY = res[0].self.location.y;
+            let minX = res[0].self.location.x;
+            let minY = res[0].self.location.y;
             res.forEach( scriptling => {
-              console.log(scriptling);
-              if (!isNaN(scriptling.location.y)) {
-                if (locationHash[scriptling.location.y] === undefined || 
-                  locationHash[scriptling.location.y] === null) {
-                  locationHash[scriptling.location.y] = {};
+              // console.log(scriptling);
+              if (!isNaN(scriptling.self.location.y)) {
+                let x = Math.floor(scriptling.self.location.x);
+                let y = Math.floor(scriptling.self.location.y);
+                const myMaxX = x + scriptling.self.senseRange;
+                const myMaxY = y + scriptling.self.senseRange;
+                const myMinX = x - scriptling.self.senseRange;
+                const myMinY = y - scriptling.self.senseRange;
+
+                maxX = Math.max(maxX, myMaxX);
+                maxY = Math.max(maxY, myMaxY);
+                minX = Math.min(minX, myMinX);
+                minY = Math.min(minY, myMinY);
+
+                scriptling.resources.forEach( resource => {
+                  if (locationHash[resource.location.y] === undefined || 
+                    locationHash[resource.location.y] === null) {
+                    locationHash[resource.location.y] = {};
+                  }
+                  if (locationHash[resource.location.y][resource.location.x] === undefined || 
+                    locationHash[resource.location.y][resource.location.x] === null) {
+                    locationHash[resource.location.y][resource.location.x] = [];
+                  }
+                  locationHash[resource.location.y][resource.location.x].push(resource);
+                });
+
+                scriptling.scriptlings.forEach( s => {
+                  x = Math.floor(s.location.x);
+                  y = Math.floor(s.location.y);
+                  if (locationHash[y] === undefined || 
+                    locationHash[y] === null) {
+                    locationHash[y] = {};
+                  }
+                  if (locationHash[y][x] === undefined || 
+                    locationHash[y][x] === null) {
+                    locationHash[y][x] = [];
+                  }
+                  locationHash[y][x].push(s);
+                });
+
+                // REMINDER: I should probably change locationHash to hold arrays of objects.  
+                // Then when preparing to render it can go through each element and decide what to display.
+                if (locationHash[y] === undefined || 
+                  locationHash[y] === null) {
+                  locationHash[y] = {};
                 }
-                locationHash[scriptling.location.y][scriptling.location.x] = scriptling;
+                if (locationHash[y][x] === undefined || 
+                  locationHash[y][x] === null) {
+                  locationHash[y][x] = [];
+                }
+                locationHash[y][x].push(scriptling);
                 // console.log(scriptling.location.x, scriptling.type);
-                maxX = Math.max(maxX, scriptling.location.x);
-                maxY = Math.max(maxY, scriptling.location.y);
+                // REMINDER: This needs to be changed to circles instead of squares.
+                for(let i = myMinY; i <= myMaxY; i++) {
+                  if (locationHash[i] === undefined || 
+                    locationHash[i] === null) {
+                    locationHash[i] = {};
+                  }
+                  for (let j = myMinX; j <= myMaxX; j++) {
+                    if (locationHash[i][j] === undefined || 
+                      locationHash[i][j] === null) {
+                      locationHash[i][j] = [];
+                      locationHash[i][j].push({ location: { x: j, y: i }, type: 'Empty' });
+                    }
+                  }
+                }
               }
             });
-            // console.log(maxX);
-            // console.log(maxY);
-            const tempRow = [];
-            for (let i = 0; i <= maxX; i++) {
-              tempRow.push({ location: { x: i, y: -1 }, type: `${i%10}` });
+            // console.log(minX + ' ' +maxX + ' ' + minY + ' ' + maxY);
+            const tempRow = [{ location: { x: null, y: null }, type: `-` }];
+            let tempStrRow = '-';
+            for (let i = minX; i <= maxX; i++) {
+              tempRow.push({ location: { x: i, y: null }, type: `${i%10}` });
+              const iStr = `${i%10}`;
+              tempStrRow += iStr.substring(iStr.length - 1);
             }
             locationArr.push(tempRow);
-            for (let i = 0; i <= maxY; i++) {
+            // console.log(tempStrRow);
+            // console.log(tempRow);
+            strArr.push(tempStrRow);
+            for (let i = minY; i <= maxY; i++) {
               const hashRow = locationHash[i];
               const arrRow = [];
-              let strRow = '';
-              for (let j = 0; j <= maxX; j++) {
+              const iStr = `${i}`;
+              let strRow = iStr.substring(iStr.length - 1);
+              for (let j = minX; j <= maxX; j++) {
                 if (hashRow === undefined || hashRow === null || 
-                  hashRow[j] === undefined || hashRow[j] === null) {
-                  arrRow.push({ location: { x: j, y: i }, type: 'Empty' });
-                  strRow += '_';
+                  hashRow[j] === undefined || hashRow[j] === null || hashRow[j].length === 0) {
+                  arrRow.push({ location: { x: j, y: i }, type: 'Fog' });
+                  strRow += 'X';
                 }
                 else {
                   // console.log(hashRow[j].type);
                   arrRow.push(hashRow[j]);
-                  if (hashRow[j].type === undefined) {
-                    strRow += 'S';
+                  let str = null;
+                  for (let k = 0; k < hashRow[j].length; k++) {
+                    if (str === null || str !== 'S') {
+                      const item = hashRow[j][k];
+                      if (item.type === undefined) {
+                        str = 'S';
+                      }
+                      else if (item.type === 'Empty') {
+                        str = '_';
+                      }
+                      else {
+                        str = item.type.substring(0, 1);
+                      }
+                    }
                   }
-                  else {
-                    strRow += hashRow[j].type.substring(0, 1);
-                  }
+                  strRow += str;
                 }
               }
               locationArr.push(arrRow);
               strArr.push(strRow);
-              // console.log(strRow);
             }
             // console.log(locationArr);
             // console.log(strArr);
+            processing = false;
             this.setState({ locationArr, strArr });
-          });
-      })
-      .catch(err => console.log(err));
+          }
+        })
+        .catch(err => console.log(err));
+    }
+  }
+
+  worldClick() {
+    if (intervalObj !== null) {
+      clearInterval(intervalObj);
+      intervalObj = null;
+      processing = false;
+    }
+    intervalObj = setInterval(this.worldTick, 3000);
+  }
+
+  worldTick() {
+    if (!processing) {
+      processing = true;
+      this.getWorldResources()
+        .then(res => { 
+          if (res === undefined || res === null) {
+            processing = false;
+          }
+          else {
+            // console.log(res);
+
+            this.setState({ resourceArr: res });
+
+            this.getWorldScriptlings()
+              .then(res => {
+                if (res === undefined || res === null) {
+                  processing = false;
+                }
+                else {
+                  // console.log(res);
+
+                  const locationArr = [];
+                  const strArr = [];
+                  const locationHash = {};
+
+                  let maxX = 0;
+                  let maxY = 0;
+                  this.state.resourceArr.forEach( resource => {
+                    if (!isNaN(resource.location.y)) {
+                      if (locationHash[resource.location.y] === undefined || 
+                        locationHash[resource.location.y] === null) {
+                        locationHash[resource.location.y] = {};
+                      }
+                      locationHash[resource.location.y][resource.location.x] = resource;
+                      // console.log(resource.location.x, resource.type);
+                      maxX = Math.max(maxX, resource.location.x);
+                      maxY = Math.max(maxY, resource.location.y);
+                    }
+                  });
+                  // Do the scriptlings after the resources so they trump resources on display.
+                  // This is just temporary.  
+                  res.forEach( scriptling => {
+                    // console.log(scriptling);
+                    if (!isNaN(scriptling.location.y)) {
+                      const x = Math.floor(scriptling.location.x);
+                      const y = Math.floor(scriptling.location.y);
+                      if (locationHash[y] === undefined || 
+                        locationHash[y] === null) {
+                        locationHash[y] = {};
+                      }
+                      locationHash[y][x] = scriptling;
+                      // console.log(x, scriptling.type);
+                      maxX = Math.max(maxX, x);
+                      maxY = Math.max(maxY, y);
+                    }
+                  });
+                  // console.log(maxX);
+                  // console.log(maxY);
+                  const tempRow = [];
+                  for (let i = 0; i <= maxX; i++) {
+                    tempRow.push({ location: { x: i, y: -1 }, type: `${i%10}` });
+                  }
+                  locationArr.push(tempRow);
+                  for (let i = 0; i <= maxY; i++) {
+                    const hashRow = locationHash[i];
+                    const arrRow = [];
+                    let strRow = '';
+                    for (let j = 0; j <= maxX; j++) {
+                      if (hashRow === undefined || hashRow === null || 
+                        hashRow[j] === undefined || hashRow[j] === null) {
+                        arrRow.push({ location: { x: j, y: i }, type: 'Empty' });
+                        strRow += '_';
+                      }
+                      else {
+                        // console.log(hashRow[j].type);
+                        arrRow.push(hashRow[j]);
+                        if (hashRow[j].type === undefined) {
+                          strRow += 'S';
+                        }
+                        else {
+                          strRow += hashRow[j].type.substring(0, 1);
+                        }
+                      }
+                    }
+                    locationArr.push(arrRow);
+                    strArr.push(strRow);
+                    // console.log(strRow);
+                  }
+                  // console.log(locationArr);
+                  // console.log(strArr);
+                  processing = false;
+                  this.setState({ locationArr, strArr });
+                }
+              });
+          }
+        })
+        .catch(err => console.log(err));
+    }
   }
 
   createWorldClick() {
     this.createWorld()
       .then(res => {
-        console.log(res);
+        // console.log(res);
       })
       .catch(err => console.log(err));
   }
@@ -281,7 +378,7 @@ class App extends Component {
     return resources;
   };
 
-  getWorldScriptings = async () => {
+  getWorldScriptlings = async () => {
     const options = { worldID: this.state.worldID, skip: 0, take: 100 };
     let response = await postData('/world/getWorldScriptlings', options);
     let body = await response.json();
@@ -322,14 +419,14 @@ class App extends Component {
   };
 
   getUserScriptings = async () => {
-    const options = { worldID: this.state.worldID, skip: 0, take: 100 };
+    const options = { worldID: this.state.worldID, userID: this.state.user._id, skip: 0, take: 100 };
     let response = await postData('/world/getScriptlingsForUser', options);
     let body = await response.json();
 
     if (response.status !== 200) throw Error(body.message);
 
     let scriptlings = body.scriptlingArr;
-
+    // console.log(scriptlings);
 
     // while(body.scriptlingArr.length === 100) {
     //   options.skip = scriptlings.length;
@@ -404,10 +501,11 @@ class App extends Component {
           }
         ], 
         defaultMindScript: "", // Default mindScript to give the user something to start with.  mindScript executes every tick.
-        birthScript: "console.log('Good Morning, Dave!);", // Executes on scriptling creation.
-        upkeepScript: "console.log(\"I'm hungry\");", // Executes every hour.  Basically it's to make scriptlings require maintenance, food, etc.
-        deathScript: "console.log(\"This was a triumph!  I'm making a note here: 'Huge Success!'\");", // Executes when a scriptling dies.
-        senseRange: 10
+        birthScript: "// console.log('Good Morning, Dave!);", // Executes on scriptling creation.
+        upkeepScript: "// console.log(\"I'm hungry\");", // Executes every hour.  Basically it's to make scriptlings require maintenance, food, etc.
+        deathScript: "// console.log(\"This was a triumph!  I'm making a note here: 'Huge Success!'\");", // Executes when a scriptling dies.
+        senseRange: 10,
+        speed: 0.5
       },
       startLocationFormula: {
         resources: 
@@ -440,7 +538,7 @@ class App extends Component {
       // itemFormulae: options.itemFormulae,
       // researchFormulae: options.researchFormulae
     };
-    console.log('creating world');
+    // console.log('creating world');
     // const response = await fetchData('/user/test/meswain@gmail.com');
     const response = await postData('/genesis/createWorld', options);
     // const response = await postData('/user/register', { email: 'meswain@gmail.com', firstName: 'Matt', lastName: 'Swain', password: 'that1guy' });    
@@ -484,7 +582,7 @@ class App extends Component {
   renderWorld() {
     // if (this.state.locationArr) {
     //   return this.state.locationArr.map(row => (
-    //     <div key={ row.coordinates.x.location.coordinates.y } className="row">{ this.renderLocationRow(row) }</div>
+    //     <div key={ row.x.location.y } className="row">{ this.renderLocationRow(row) }</div>
     //   ));
     // }
     if (this.state.strArr) {
@@ -496,7 +594,7 @@ class App extends Component {
 
   // renderLocationRow(row) {
   //   return row.map(element => (
-  //     <span key={ element.location.coordinates.x } className={ element.location.coordinates.x }>{ this.renderElement(element) }</span>
+  //     <span key={ element.location.x } className={ element.location.x }>{ this.renderElement(element) }</span>
   //   ));
   // }
 
@@ -507,7 +605,7 @@ class App extends Component {
   // }
 
   getYs(data) {
-    return data.map(d => d.location.coordinates.y);
+    return data.map(d => d.location.y);
   }
   getMinY(data) {
     return Math.min(...this.getYs(data));
@@ -517,7 +615,7 @@ class App extends Component {
   }
 
   getXs(data) {
-    return data.map(d => d.location.coordinates.x);
+    return data.map(d => d.location.x);
   }
   getMinX(data) {
     return Math.min(...this.getXs(data));
