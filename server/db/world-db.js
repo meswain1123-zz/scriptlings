@@ -60,7 +60,7 @@ function createScriptlingForUser(respond, userID, worldID, location) {
         max: 100,
         current: 0, // This is a sum of all the quantities in resources.
         resources: {
-          // type: 'string', quantity: 'int'
+          // resourceType: 'string', quantity: 'int'
         }
       },
       weapon: null,
@@ -167,6 +167,37 @@ function senseResources(respond, scriptling, worldID, senseRange) {
     .find({ 
       worldID: ObjectID(worldID), 
       "location.x": { $gte: minX, $lte: maxX }, 
+      "location.y": { $gte: minY, $lte: maxY },
+      quantity: { $gt: 0 },
+      respawnTime: null
+    }).sort( { _id: 1 } )
+    .toArray(function (err, docs) {
+    // console.log(docs);
+    if (err) throw err;
+    respond(docs);
+  });
+}
+
+function senseDroppedResources(respond, scriptling, worldID, senseRange) {
+  const db = client.db(dbName);
+
+  // db.collection('worldResource').find({ location : { $near : [scriptling.location[0], scriptling.location[1]] }}).toArray(function (err, docs) {
+  //   if (err) throw err;
+  //   respond(docs);
+  // });
+
+  const minY = scriptling.location.y - senseRange;
+  const maxY = scriptling.location.y + senseRange;
+  const minX = scriptling.location.x - senseRange;
+  const maxX = scriptling.location.x + senseRange;
+  // console.log(minX);
+  // console.log(maxX);
+  // console.log(minY);
+  // console.log(maxY);
+  db.collection('droppedResource')
+    .find({ 
+      worldID: ObjectID(worldID), 
+      "location.x": { $gte: minX, $lte: maxX }, 
       "location.y": { $gte: minY, $lte: maxY } 
     }).sort( { _id: 1 } )
     .toArray(function (err, docs) {
@@ -226,7 +257,7 @@ function updateScriptlingInventory(respond, scriptling) {
         inventory: scriptling.inventory
       }
     });
-  respond({ message: `Scriptling ${scriptlingID} updated!`});
+  respond({ message: `Scriptling ${scriptling._id} updated!`});
 }
 
 // Gets a location with good resources nearby (worldGenerator will intentionally make these and mark them)
@@ -315,11 +346,11 @@ function getWorldBlock(respond, blockID) {
 //   );
 // }
 
-function addWorldResource(respond, worldID, location, type) {
+function addWorldResource(respond, worldID, location, resourceType) {
   const db = client.db(dbName);
   db.collection('worldResource').insertOne(
     {
-      worldID: ObjectID(worldID), location, type, quantity: 100, respawnTime: null
+      worldID: ObjectID(worldID), location, resourceType, quantity: 100, respawnTime: null
     }, function(err, res) {
       respond(res.ops[0]);
     }
@@ -361,9 +392,10 @@ function respawnResource(respond, worldResourceID) {
 function getWorldResources(respond, worldID, skip, take) {
   // console.log(`Getting resources: ${worldID}`); 
   const db = client.db(dbName);
-
+  // console.log(skip);
+  // console.log(take);
   db.collection('worldResource')
-    .find({ worldID: ObjectID(worldID) }).sort( { _id: 1 } )
+    .find({ worldID: ObjectID(worldID) })
     .skip(skip).limit(take).toArray(function (err, docs) {
     // console.log(docs);
     if (err) throw err;
@@ -402,7 +434,7 @@ function addDroppedResource(respond, droppedResource) {
   const db = client.db(dbName);
   db.collection('droppedResource').insertOne(
     { 
-      worldID: droppedResource.worldID,
+      worldID: ObjectID(droppedResource.worldID),
       location: droppedResource.location, 
       type: droppedResource.type, 
       quantity: droppedResource.quantity
@@ -509,7 +541,7 @@ function updateScriptlingStats(scriptling) {
 module.exports = { 
   open, close, 
   getScriptlings, getScriptlingsForUser, createScriptlingForUser, getUsersForWorld,
-  senseScriptlings, senseResources, getCommand, updateCommand, 
+  senseScriptlings, senseResources, senseDroppedResources, getCommand, updateCommand, 
   setScriptlingActionAndMemory, 
   updateScriptlingLocation, updateScriptlingStats, updateScriptlingInventory,
   addUserToWorld, getUserForWorld, getAvailableStartLocations, 

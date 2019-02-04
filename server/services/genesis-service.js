@@ -64,10 +64,11 @@ function generateResourcesForBlock(respond, world, block) {
         const resourceType = calcResourceType(world.worldBlockFormula.wallResources);
         resourceArr.push({
           worldID: ObjectID(world._id), 
-          location: { type: "Point", x: block.corners[0].x + i, y: block.corners[0].y + j }, 
-          type: resourceType, 
+          location: { x: block.corners[0].x + i, y: block.corners[0].y + j }, 
+          resourceType, 
           quantity: 100, 
-          respawnTime: null
+          respawnTime: null,
+          objectType: 'resource'
         });
       }
     }
@@ -79,10 +80,11 @@ function generateResourcesForBlock(respond, world, block) {
         const resourceType = calcResourceType(world.worldBlockFormula.wallResources);
         resourceArr.push({
           worldID: ObjectID(world._id), 
-          location: { type: "Point", x: block.corners[3].x + i, y: block.corners[3].y - j }, 
-          type: resourceType, 
+          location: { x: block.corners[3].x + i, y: block.corners[3].y - j }, 
+          resourceType, 
           quantity: 100, 
-          respawnTime: null
+          respawnTime: null,
+          objectType: 'resource'
         });
       }
     }
@@ -94,10 +96,11 @@ function generateResourcesForBlock(respond, world, block) {
         const resourceType = calcResourceType(world.worldBlockFormula.wallResources);
         resourceArr.push({
           worldID: ObjectID(world._id), 
-          location: { type: "Point", x: block.corners[0].x + j, y: block.corners[0].y + i }, 
-          type: resourceType, 
+          location: { x: block.corners[0].x + j, y: block.corners[0].y + i }, 
+          resourceType, 
           quantity: 100, 
-          respawnTime: null
+          respawnTime: null,
+          objectType: 'resource'
         });
       }
     }
@@ -109,10 +112,11 @@ function generateResourcesForBlock(respond, world, block) {
         const resourceType = calcResourceType(world.worldBlockFormula.wallResources);
         resourceArr.push({
           worldID: ObjectID(world._id), 
-          location: { type: "Point", x: block.corners[1].x - j - 1, y: block.corners[1].y + i }, 
-          type: resourceType, 
+          location: { x: block.corners[1].x - j - 1, y: block.corners[1].y + i }, 
+          resourceType, 
           quantity: 100, 
-          respawnTime: null
+          respawnTime: null,
+          objectType: 'resource'
         });
       }
     }
@@ -135,10 +139,11 @@ function generateResourcesForBlock(respond, world, block) {
         for (let k = 0; k < locations.length; k++) {
           const r = {
             worldID: ObjectID(world._id), 
-            location: { type: "Point", x: locations[k].x, y: locations[k].y }, 
-            type: resource.name, 
+            location: { x: locations[k].x, y: locations[k].y }, 
+            resourceType: resource.name, 
             quantity: 100, 
-            respawnTime: null
+            respawnTime: null,
+            objectType: 'resource'
           };
           resourceArr.push(r);
           newResourceArr.push(r);
@@ -289,7 +294,7 @@ router.post('/createWorld', function (req, res) {
   //     },
   //     wallResources: [
   //       {
-  //         type: 'Iron',
+  //         resourceType: 'Iron',
   //         percentage: 100
   //       }
   //     ]

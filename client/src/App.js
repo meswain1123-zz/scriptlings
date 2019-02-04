@@ -20,7 +20,7 @@ class App extends Component {
   constructor(props) {
     super(props);
     this.state = {
-      worldID: "5bff077591160233b8f9c9b6",
+      worldID: "5c4b7967a82f0ae4489ab8c4",
       user: { email: 'meswain@gmail.com', password: 'that1guy' }
     };
     this.loginClick = this.loginClick.bind(this);
@@ -32,6 +32,8 @@ class App extends Component {
     this.createWorldClick = this.createWorldClick.bind(this);
     this.worldTick = this.worldTick.bind(this);
     this.senseTick = this.senseTick.bind(this);
+    this.hashClick = this.hashClick.bind(this);
+    this.hashTick = this.hashTick.bind(this);
   }
 
   loginClick() {
@@ -220,6 +222,80 @@ class App extends Component {
     }
   }
 
+  hashClick() {
+    if (intervalObj !== null) {
+      clearInterval(intervalObj);
+      intervalObj = null;
+      processing = false;
+    }
+    intervalObj = setInterval(this.hashTick, 3000);
+  }
+
+  hashTick() {
+    if (!processing) {
+      processing = true;
+      this.getLocationHash()
+        .then(res => { 
+          const locationArr = [];
+          const strArr = [];
+          const locationHash = res;
+          const maxX = 100;
+          const maxY = 100;
+          
+          const tempRow = [{ location: { x: null, y: null }, type: `-` }];
+          let tempStrRow = '-';
+          for (let i = 0; i <= maxX; i++) {
+            tempRow.push({ location: { x: i, y: null }, type: `${i%10}` });
+            const iStr = `${i%10}`;
+            tempStrRow += iStr.substring(iStr.length - 1);
+          }
+          locationArr.push(tempRow);
+          // console.log(tempStrRow);
+          // console.log(tempRow);
+          strArr.push(tempStrRow);
+          for (let i = 0; i <= maxY; i++) {
+            const hashRow = locationHash[i];
+            const arrRow = [];
+            const iStr = `${i}`;
+            let strRow = iStr.substring(iStr.length - 1);
+            for (let j = 0; j <= maxX; j++) {
+              if (hashRow === undefined || hashRow === null || 
+                hashRow[j] === undefined || hashRow[j] === null) {
+                arrRow.push({ location: { x: j, y: i }, type: 'Empty' });
+                strRow += '_';
+              }
+              else {
+                // console.log(hashRow[j]);
+                arrRow.push(hashRow[j]);
+                if (hashRow[j].scriptling.length > 0) {
+                  strRow += 'S';
+                }
+                else if (hashRow[j].droppedResource.length > 0) {
+                  strRow += 'D';
+                }
+                else if (hashRow[j].resource.length > 0) {
+                  // console.log(hashRow[j]);
+                  strRow += hashRow[j].resource[0].resourceType.substring(0, 1);
+                  // strRow += 'R';
+                }
+                else {
+                  strRow += '?';
+                }
+              }
+            }
+            locationArr.push(arrRow);
+            strArr.push(strRow);
+            // console.log(strRow);
+          }
+          // console.log(locationArr);
+          // console.log(strArr);
+          processing = false;
+          this.setState({ locationArr, strArr });
+        })
+        .catch(err => console.log(err));
+    }
+  }
+
   worldClick() {
     if (intervalObj !== null) {
       clearInterval(intervalObj);
@@ -242,87 +318,142 @@ class App extends Component {
 
             this.setState({ resourceArr: res });
 
-            this.getWorldScriptlings()
-              .then(res => {
-                if (res === undefined || res === null) {
-                  processing = false;
-                }
-                else {
-                  // console.log(res);
+            this.getDroppedResources()
+            .then(res => { 
+              if (res === undefined || res === null) {
+                processing = false;
+              }
+              else {
+                // console.log(res);
 
-                  const locationArr = [];
-                  const strArr = [];
-                  const locationHash = {};
+                this.setState({ droppedResourceArr: res });
 
-                  let maxX = 0;
-                  let maxY = 0;
-                  this.state.resourceArr.forEach( resource => {
-                    if (!isNaN(resource.location.y)) {
-                      if (locationHash[resource.location.y] === undefined || 
-                        locationHash[resource.location.y] === null) {
-                        locationHash[resource.location.y] = {};
+                this.getWorldScriptlings()
+                  .then(res => {
+                    if (res === undefined || res === null) {
+                      processing = false;
+                    }
+                    else {
+                      // console.log(res);
+    
+                      const locationArr = [];
+                      const strArr = [];
+                      const locationHash = {};
+    
+                      let maxX = 0;
+                      let maxY = 0;
+                      this.state.resourceArr.forEach( resource => {
+                        if (!isNaN(resource.location.y)) {
+                          if (locationHash[resource.location.y] === undefined || 
+                            locationHash[resource.location.y] === null) {
+                            locationHash[resource.location.y] = {};
+                          }
+                          resource.type = resource.resourceType;
+                          locationHash[resource.location.y][resource.location.x] = resource;
+                          // console.log(resource.location.x, resource.type);
+                          maxX = Math.max(maxX, resource.location.x);
+                          maxY = Math.max(maxY, resource.location.y);
+                        }
+                      });
+                      this.state.droppedResourceArr.forEach( resource => {
+                        if (!isNaN(resource.location.y)) {
+                          if (locationHash[resource.location.y] === undefined || 
+                            locationHash[resource.location.y] === null) {
+                            locationHash[resource.location.y] = {};
+                          }
+                          resource.type = 'Dropped';
+                          locationHash[resource.location.y][resource.location.x] = resource;
+                          // console.log(resource.location.x, resource.type);
+                          maxX = Math.max(maxX, resource.location.x);
+                          maxY = Math.max(maxY, resource.location.y);
+                        }
+                      });
+                      // Do the scriptlings after the resources so they trump resources on display.
+                      // This is just temporary.  
+                      res.forEach( scriptling => {
+                        // console.log(scriptling);
+                        if (!isNaN(scriptling.location.y)) {
+                          const x = Math.floor(scriptling.location.x);
+                          const y = Math.floor(scriptling.location.y);
+                          if (locationHash[y] === undefined || 
+                            locationHash[y] === null) {
+                            locationHash[y] = {};
+                          }
+                          locationHash[y][x] = scriptling;
+                          // console.log(x, scriptling.type);
+                          maxX = Math.max(maxX, x);
+                          maxY = Math.max(maxY, y);
+                          // console.log(scriptling.location);
+                          if (scriptling.action.action === "Gather") {
+                            const targetLoc = scriptling.action.target.location;
+                            targetLoc.x += 50;
+                            targetLoc.y += 50;
+                            // const target = locationHash[targetLoc.y][targetLoc.x];
+                            // console.log(target);
+                            // console.log(scriptling.action.target);
+                            // console.log(this.state.resourceArr.length);
+                            for (let i = 0; i < this.state.resourceArr.length; i++) {
+                              const resource = this.state.resourceArr[i];
+                              if (resource._id === scriptling.action.target._id) {
+                                // console.log(resource);
+                                resource.type = "Target";
+                                locationHash[resource.location.y][resource.location.x] = resource;
+                                break;
+                              }
+                            }
+                          }
+                        }
+                      });
+                      // console.log(maxX);
+                      // console.log(maxY);
+                      const tempRow = [{ location: { x: null, y: null }, type: `-` }];
+                      let tempStrRow = '-';
+                      for (let i = 0; i <= maxX; i++) {
+                        tempRow.push({ location: { x: i, y: null }, type: `${i%10}` });
+                        const iStr = `${i%10}`;
+                        tempStrRow += iStr.substring(iStr.length - 1);
                       }
-                      locationHash[resource.location.y][resource.location.x] = resource;
-                      // console.log(resource.location.x, resource.type);
-                      maxX = Math.max(maxX, resource.location.x);
-                      maxY = Math.max(maxY, resource.location.y);
+                      locationArr.push(tempRow);
+                      // console.log(tempStrRow);
+                      // console.log(tempRow);
+                      strArr.push(tempStrRow);
+                      for (let i = 0; i <= maxY; i++) {
+                        const hashRow = locationHash[i];
+                        const arrRow = [];
+                        const iStr = `${i}`;
+                        let strRow = iStr.substring(iStr.length - 1);
+                        for (let j = 0; j <= maxX; j++) {
+                          if (hashRow === undefined || hashRow === null || 
+                            hashRow[j] === undefined || hashRow[j] === null) {
+                            arrRow.push({ location: { x: j, y: i }, type: 'Empty' });
+                            strRow += '_';
+                          }
+                          else {
+                            // console.log(hashRow[j].type);
+                            arrRow.push(hashRow[j]);
+                            if (hashRow[j].type === undefined) {
+                              // console.log(hashRow[j]);
+                              strRow += 'S';
+                            }
+                            else {
+                              // console.log(hashRow[j].type);
+                              strRow += hashRow[j].type.substring(0, 1);
+                            }
+                          }
+                        }
+                        locationArr.push(arrRow);
+                        strArr.push(strRow);
+                        // console.log(strRow);
+                      }
+                      // console.log(locationArr);
+                      // console.log(strArr);
+                      processing = false;
+                      this.setState({ locationArr, strArr });
                     }
                   });
-                  // Do the scriptlings after the resources so they trump resources on display.
-                  // This is just temporary.  
-                  res.forEach( scriptling => {
-                    // console.log(scriptling);
-                    if (!isNaN(scriptling.location.y)) {
-                      const x = Math.floor(scriptling.location.x);
-                      const y = Math.floor(scriptling.location.y);
-                      if (locationHash[y] === undefined || 
-                        locationHash[y] === null) {
-                        locationHash[y] = {};
-                      }
-                      locationHash[y][x] = scriptling;
-                      // console.log(x, scriptling.type);
-                      maxX = Math.max(maxX, x);
-                      maxY = Math.max(maxY, y);
-                    }
-                  });
-                  // console.log(maxX);
-                  // console.log(maxY);
-                  const tempRow = [];
-                  for (let i = 0; i <= maxX; i++) {
-                    tempRow.push({ location: { x: i, y: -1 }, type: `${i%10}` });
-                  }
-                  locationArr.push(tempRow);
-                  for (let i = 0; i <= maxY; i++) {
-                    const hashRow = locationHash[i];
-                    const arrRow = [];
-                    let strRow = '';
-                    for (let j = 0; j <= maxX; j++) {
-                      if (hashRow === undefined || hashRow === null || 
-                        hashRow[j] === undefined || hashRow[j] === null) {
-                        arrRow.push({ location: { x: j, y: i }, type: 'Empty' });
-                        strRow += '_';
-                      }
-                      else {
-                        // console.log(hashRow[j].type);
-                        arrRow.push(hashRow[j]);
-                        if (hashRow[j].type === undefined) {
-                          strRow += 'S';
-                        }
-                        else {
-                          strRow += hashRow[j].type.substring(0, 1);
-                        }
-                      }
-                    }
-                    locationArr.push(arrRow);
-                    strArr.push(strRow);
-                    // console.log(strRow);
-                  }
-                  // console.log(locationArr);
-                  // console.log(strArr);
-                  processing = false;
-                  this.setState({ locationArr, strArr });
-                }
-              });
+              }
+            })
+            .catch(err => console.log(err));
           }
         })
         .catch(err => console.log(err));
@@ -357,22 +488,71 @@ class App extends Component {
   };
 
   getWorldResources = async () => {
-    const options = { worldID: this.state.worldID, skip: 0, take: 100 };
+    const options = { worldID: this.state.worldID, skip: 0, take: 2000 };
+    // console.log(options);
     let response = await postData('/world/getWorldResources', options);
     let body = await response.json();
 
     if (response.status !== 200) throw Error(body.message);
 
-    let resources = body.resourceArr;
+    let resources = body.resourceArr.filter(resource => resource.quantity > 0);
+    // This is here because I figured out that 5 of the resources were showing up multiple times, ie getting duplicated for display.  
+    // Not going to worry about it for now.
+    // let resourceHash = {};
+    // resources.forEach( r => {
+    //   if (resourceHash[r._id] !== undefined && resourceHash[r._id] !== null) {
+    //     console.log('dupe: ', r);
+    //   }
+    //   resourceHash[r._id] = r;
+    // });
+    
 
-    while(body.resourceArr.length === 100) {
+    while(body.resourceArr.length === options.take) {
       options.skip = resources.length;
       response = await postData('/world/getWorldResources', options);
       body = await response.json();
   
+      if (response.status !== 200) {
+        console.log(body.message);
+        throw Error(body.message);
+      }
+
+      const takeUs = body.resourceArr.filter(resource => resource.quantity > 0);
+      // takeUs.forEach( r => {
+      //   if (resourceHash[r._id] !== undefined && resourceHash[r._id] !== null) {
+      //     console.log('dupe: ', r);
+      //   }
+      //   resourceHash[r._id] = r;
+      // });
+      // console.log(takeUs.length);
+      // console.log(body.resourceArr.length);
+      resources = [...resources, ...takeUs];
+    }
+
+    return resources;
+  };
+
+  getDroppedResources = async () => {
+    const options = { worldID: this.state.worldID, skip: 0, take: 100 };
+    // console.log(options);
+    let response = await postData('/world/getDroppedResources', options);
+    let body = await response.json();
+
+    if (response.status !== 200) throw Error(body.message);
+
+    let resources = body.resourceArr.filter(resource => resource.quantity > 0);
+
+    while(body.resourceArr.length === options.take) {
+      options.skip = resources.length;
+      response = await postData('/world/getDroppedResources', options);
+      body = await response.json();
+  
       if (response.status !== 200) throw Error(body.message);
 
-      resources = [...resources, ...body.resourceArr];
+      const takeUs = body.resourceArr.filter(resource => resource.quantity > 0);
+
+      // console.log(body.resourceArr.length);
+      resources = [...resources, ...takeUs];
     }
 
     return resources;
@@ -398,6 +578,18 @@ class App extends Component {
     }
 
     return scriptlings;
+  };
+
+  getLocationHash = async () => {
+    const options = { worldID: this.state.worldID, skip: 0, take: 100 };
+    let response = await postData('/world/getLocationHash', options);
+    let body = await response.json();
+
+    if (response.status !== 200) throw Error(body.message);
+
+    let locationHash = body.locationHash;
+    // console.log(locationHash);
+    return locationHash;
   };
 
   startWorld = async () => {
@@ -505,6 +697,9 @@ class App extends Component {
         upkeepScript: "// console.log(\"I'm hungry\");", // Executes every hour.  Basically it's to make scriptlings require maintenance, food, etc.
         deathScript: "// console.log(\"This was a triumph!  I'm making a note here: 'Huge Success!'\");", // Executes when a scriptling dies.
         senseRange: 10,
+        gatherRange: 2,
+        dropRange: 2,
+        attackRange: 2,
         speed: 0.5
       },
       startLocationFormula: {
@@ -649,6 +844,7 @@ class App extends Component {
             </div>
             <div className="col-xl-2">
               <Button bsStyle="primary" className="FormGroup" onClick={ this.worldClick }>Get World</Button>
+              <Button bsStyle="primary" className="FormGroup" onClick={ this.hashClick }>Get Hash</Button>
             </div>
             <div className="col-xl-2">
               <Button bsStyle="primary" className="FormGroup" onClick={ this.userScriptlingsClick }>Sense World</Button>
